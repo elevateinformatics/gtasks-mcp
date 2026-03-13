@@ -4,19 +4,25 @@ MCP server for integrating Google Tasks with Claude Desktop.
 
 ## Quick Start (for colleagues)
 
-### 0. One-time setup — GitHub Packages auth
+### 1. One-time setup — GitHub Packages auth
 
 Crear un [GitHub Personal Access Token](https://github.com/settings/tokens/new) con scope `read:packages`, luego:
 
 ```bash
-# ~/.npmrc  (crear si no existe)
 echo "@elevateinformatics:registry=https://npm.pkg.github.com" >> ~/.npmrc
 echo "//npm.pkg.github.com/:_authToken=TU_GITHUB_TOKEN" >> ~/.npmrc
 ```
 
-### 1. Prerequisites — Google Cloud credentials
+### 2. Colocar credenciales de Google Cloud
 
-You need a `gcp-oauth.keys.json` file. Ask a team member or create one:
+Crear la carpeta `~/.gtasks/` y colocar ahí el archivo `gcp-oauth.keys.json`:
+
+```bash
+mkdir -p ~/.gtasks
+cp gcp-oauth.keys.json ~/.gtasks/
+```
+
+Para obtener `gcp-oauth.keys.json`:
 
 1. [Create a Google Cloud project](https://console.cloud.google.com/projectcreate)
 2. [Enable the Google Tasks API](https://console.cloud.google.com/workspace-api/products)
@@ -25,21 +31,9 @@ You need a `gcp-oauth.keys.json` file. Ask a team member or create one:
 5. [Create an OAuth Client ID](https://console.cloud.google.com/apis/credentials/oauthclient) → Desktop App
 6. Download and rename the file to `gcp-oauth.keys.json`
 
-### 2. Authenticate
-
-Place `gcp-oauth.keys.json` in a permanent folder (e.g. `~/.gtasks/`) then run:
-
-```bash
-npx @elevateinformatics/gtasks-mcp auth
-```
-
-This opens a browser, completes the OAuth flow, and saves `.gtasks-server-credentials.json` next to the package.
-
-> **Tip:** credentials are saved relative to the package. For a stable path, clone the repo instead of using npx.
-
 ### 3. Configure Claude Desktop
 
-Add to `claude_desktop_config.json`:
+Agregar a `claude_desktop_config.json`:
 
 ```json
 {
@@ -52,10 +46,12 @@ Add to `claude_desktop_config.json`:
 }
 ```
 
-**Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
-**macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+- **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
 
-Restart Claude Desktop. Done.
+Al iniciar Claude Desktop, si no hay credenciales guardadas, se abre automáticamente el flujo de autenticación OAuth en el browser. Los tokens se guardan en `~/.gtasks/credentials.json` y se renuevan automáticamente.
+
+> **Path custom:** Si querés guardar los archivos en otra ubicación, agregar `"env": { "GTASKS_DIR": "/ruta/custom" }` en la config.
 
 ---
 

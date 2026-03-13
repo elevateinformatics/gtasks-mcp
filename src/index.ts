@@ -12,8 +12,8 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import fs from "fs";
 import { google, tasks_v1 } from "googleapis";
+import os from "os";
 import path from "path";
-import { fileURLToPath } from "url";
 import { TaskActions, TaskResources } from "./Tasks.js";
 
 const tasks = google.tasks("v1");
@@ -260,46 +260,58 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   throw new Error("Tool not found");
 });
 
-const credentialsPath = path.join(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "../.gtasks-server-credentials.json",
-);
+const gtasksDir = process.env.GTASKS_DIR ?? path.join(os.homedir(), ".gtasks");
+const credentialsPath = path.join(gtasksDir, "credentials.json");
+const oauthKeysPath = path.join(gtasksDir, "gcp-oauth.keys.json");
 
 async function authenticateAndSaveCredentials() {
+  if (!fs.existsSync(oauthKeysPath)) {
+    console.error(`OAuth keys not found at: ${oauthKeysPath}`);
+    console.error(`Place your gcp-oauth.keys.json file in ~/.gtasks/`);
+    process.exit(1);
+  }
+  fs.mkdirSync(gtasksDir, { recursive: true });
   console.log("Launching auth flow…");
-  const p = path.join(
-    path.dirname(fileURLToPath(import.meta.url)),
-    "../gcp-oauth.keys.json",
-  );
-
-  console.log(p);
   const auth = await authenticate({
-    keyfilePath: p,
+    keyfilePath: oauthKeysPath,
     scopes: ["https://www.googleapis.com/auth/tasks"],
   });
   fs.writeFileSync(credentialsPath, JSON.stringify(auth.credentials));
-  console.log("Credentials saved. You can now run the server.");
+  console.log(`Credentials saved to ${credentialsPath}. You can now run the server.`);
 }
 
 async function loadCredentialsAndRunServer() {
-  if (!fs.existsSync(credentialsPath)) {
-    console.error(
-      "Credentials not found. Please run with 'auth' argument first.",
-    );
-    process.exit(1);
-  }
+  const savedCredentials = JSON.parse(fs.readFileSync(credentialsPath, "utf-8"));
+  const keys = JSON.parse(fs.readFileSync(oauthKeysPath, "utf-8"));
+  const { client_id, client_secret, redirect_uris } = keys.installed ?? keys.web;
 
-  const credentials = JSON.parse(fs.readFileSync(credentialsPath, "utf-8"));
-  const auth = new google.auth.OAuth2();
-  auth.setCredentials(credentials);
+  const auth = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
+  auth.setCredentials(savedCredentials);
+  auth.on("tokens", (tokens) => {
+    const current = JSON.parse(fs.readFileSync(credentialsPath, "utf-8"));
+    fs.writeFileSync(credentialsPath, JSON.stringify({ ...current, ...tokens }));
+  });
   google.options({ auth });
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }
 
-if (process.argv[2] === "auth") {
-  authenticateAndSaveCredentials().catch(console.error);
-} else {
-  loadCredentialsAndRunServer().catch(console.error);
+async function main() {
+  if (!fs.existsSync(credentialsPath)) {
+    await authenticateAndSaveCredentials();
+  }
+  try {
+    await loadCredentialsAndRunServer();
+  } catch (err: any) {
+    if (err?.message?.includes("invalid_grant")) {
+      console.error("Token revocado o expirado. Relanzando autenticación…");
+      await authenticateAndSaveCredentials();
+      await loadCredentialsAndRunServer();
+    } else {
+      throw err;
+    }
+  }
 }
+
+main().catch(console.error);
