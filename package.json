@@ -16,7 +16,7 @@
   },
   "type": "module",
   "bin": {
-    "mcp-server-gtasks": "dist/index.js"
+    "gtasks-mcp": "dist/index.js"
   },
   "files": [
     "dist"
