@@ -1,11 +1,19 @@
 {
-  "name": "@modelcontextprotocol/server-gtasks",
-  "version": "0.0.1",
+  "name": "@elevateinformatics/gtasks-mcp",
+  "version": "1.0.0",
   "description": "MCP server for interacting with Google Tasks",
   "license": "MIT",
-  "author": "zcaceres (@zachcaceres zach.dev)",
-  "homepage": "https://modelcontextprotocol.io",
-  "bugs": "https://github.com/modelcontextprotocol/servers/issues",
+  "author": "Elevate Informatics",
+  "homepage": "https://github.com/elevateinformatics/gtasks-mcp",
+  "bugs": "https://github.com/elevateinformatics/gtasks-mcp/issues",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/elevateinformatics/gtasks-mcp.git"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "restricted"
+  },
   "type": "module",
   "bin": {
     "mcp-server-gtasks": "dist/index.js"
@@ -14,10 +22,12 @@
     "dist"
   ],
   "scripts": {
-    "build": "bun build ./src/index.ts --outdir ./dist --target bun",
-    "dev": "bun --watch src/index.ts",
-    "start": "bun run src/index.ts",
-    "test": "bun test"
+    "build": "tsc",
+    "dev": "node --watch dist/index.js",
+    "start": "node dist/index.js",
+    "test": "node --test",
+    "authenticate": "node dist/index.js auth",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "@google-cloud/local-auth": "^3.0.1",
@@ -25,6 +35,7 @@
     "googleapis": "^144.0.0"
   },
   "devDependencies": {
-    "bun-types": "^1.2.5"
+    "@types/node": "^22.0.0",
+    "typescript": "^5.0.0"
   }
 }

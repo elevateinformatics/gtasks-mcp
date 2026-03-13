@@ -1,108 +1,102 @@
 # Google Tasks MCP Server
 
-![gtasks mcp logo](./logo.jpg)
-[![smithery badge](https://smithery.ai/badge/@zcaceres/gtasks)](https://smithery.ai/server/@zcaceres/gtasks)
+MCP server for integrating Google Tasks with Claude Desktop.
 
-This MCP server integrates with Google Tasks to allow listing, reading, searching, creating, updating, and deleting tasks.
+## Quick Start (for colleagues)
 
-## Components
+### 0. One-time setup — GitHub Packages auth
 
-### Tools
-
-- **search**
-  - Search for tasks in Google Tasks
-  - Input: `query` (string): Search query
-  - Returns matching tasks with details
-
-- **list**
-  - List all tasks in Google Tasks
-  - Optional input: `cursor` (string): Cursor for pagination
-  - Returns a list of all tasks
-
-- **create**
-  - Create a new task in Google Tasks
-  - Input:
-    - `taskListId` (string, optional): Task list ID
-    - `title` (string, required): Task title
-    - `notes` (string, optional): Task notes
-    - `due` (string, optional): Due date
-  - Returns confirmation of task creation
-
-- **update**
-  - Update an existing task in Google Tasks
-  - Input:
-    - `taskListId` (string, optional): Task list ID
-    - `id` (string, required): Task ID
-    - `uri` (string, required): Task URI
-    - `title` (string, optional): New task title
-    - `notes` (string, optional): New task notes
-    - `status` (string, optional): New task status ("needsAction" or "completed")
-    - `due` (string, optional): New due date
-  - Returns confirmation of task update
-
-- **delete**
-  - Delete a task in Google Tasks
-  - Input:
-    - `taskListId` (string, required): Task list ID
-    - `id` (string, required): Task ID
-  - Returns confirmation of task deletion
-
-- **clear**
-  - Clear completed tasks from a Google Tasks task list
-  - Input: `taskListId` (string, required): Task list ID
-  - Returns confirmation of cleared tasks
-
-### Resources
-
-The server provides access to Google Tasks resources:
-
-- **Tasks** (`gtasks:///<task_id>`)
-  - Represents individual tasks in Google Tasks
-  - Supports reading task details including title, status, due date, notes, and other metadata
-  - Can be listed, read, created, updated, and deleted using the provided tools
-
-## Getting started
-
-1. [Create a new Google Cloud project](https://console.cloud.google.com/projectcreate)
-2. [Enable the Google Tasks API](https://console.cloud.google.com/workspace-api/products)
-3. [Configure an OAuth consent screen](https://console.cloud.google.com/apis/credentials/consent) ("internal" is fine for testing)
-4. Add scopes `https://www.googleapis.com/auth/tasks`
-5. [Create an OAuth Client ID](https://console.cloud.google.com/apis/credentials/oauthclient) for application type "Desktop App"
-6. Download the JSON file of your client's OAuth keys
-7. Rename the key file to `gcp-oauth.keys.json` and place into the root of this repo (i.e. `gcp-oauth.keys.json`)
-
-Make sure to build the server with either `npm run build` or `npm run watch`.
-
-### Installing via Smithery
-
-To install Google Tasks Server for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@zcaceres/gtasks):
+Crear un [GitHub Personal Access Token](https://github.com/settings/tokens/new) con scope `read:packages`, luego:
 
 ```bash
-npx -y @smithery/cli install @zcaceres/gtasks --client claude
+# ~/.npmrc  (crear si no existe)
+echo "@elevateinformatics:registry=https://npm.pkg.github.com" >> ~/.npmrc
+echo "//npm.pkg.github.com/:_authToken=TU_GITHUB_TOKEN" >> ~/.npmrc
 ```
 
-### Authentication
+### 1. Prerequisites — Google Cloud credentials
 
-To authenticate and save credentials:
+You need a `gcp-oauth.keys.json` file. Ask a team member or create one:
 
-1. Run the server with the `auth` argument: `npm run start auth`
-2. This will open an authentication flow in your system browser
-3. Complete the authentication process
-4. Credentials will be saved in the root of this repo (i.e. `.gdrive-server-credentials.json`)
+1. [Create a Google Cloud project](https://console.cloud.google.com/projectcreate)
+2. [Enable the Google Tasks API](https://console.cloud.google.com/workspace-api/products)
+3. [Configure OAuth consent screen](https://console.cloud.google.com/apis/credentials/consent) (internal)
+4. Add scope: `https://www.googleapis.com/auth/tasks`
+5. [Create an OAuth Client ID](https://console.cloud.google.com/apis/credentials/oauthclient) → Desktop App
+6. Download and rename the file to `gcp-oauth.keys.json`
 
-### Usage with Desktop App
+### 2. Authenticate
 
-To integrate this server with the desktop app, add the following to your app's server configuration:
+Place `gcp-oauth.keys.json` in a permanent folder (e.g. `~/.gtasks/`) then run:
+
+```bash
+npx @elevateinformatics/gtasks-mcp auth
+```
+
+This opens a browser, completes the OAuth flow, and saves `.gtasks-server-credentials.json` next to the package.
+
+> **Tip:** credentials are saved relative to the package. For a stable path, clone the repo instead of using npx.
+
+### 3. Configure Claude Desktop
+
+Add to `claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
     "gtasks": {
-      "command": "/opt/homebrew/bin/node",
-      "args": [
-        "{ABSOLUTE PATH TO FILE HERE}/dist/index.js"
-      ]
+      "command": "npx",
+      "args": ["-y", "@elevateinformatics/gtasks-mcp"]
     }
   }
 }
 ```
+
+**Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+**macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+
+Restart Claude Desktop. Done.
+
+---
+
+## Alternative: Docker
+
+```bash
+docker pull ghcr.io/elevateinformatics/gtasks-mcp:latest
+```
+
+---
+
+## Tools available
+
+| Tool | Description |
+| ---- | ----------- |
+| `list` | List all tasks |
+| `list-tasklists` | List all task lists with their IDs |
+| `search` | Search tasks by query |
+| `create` | Create a task |
+| `update` | Update title, notes, status, or due date |
+| `delete` | Delete a task |
+| `clear` | Clear completed tasks from a list |
+
+---
+
+## Development
+
+```bash
+git clone https://github.com/elevateinformatics/gtasks-mcp
+cd gtasks-mcp
+npm install
+npm run build
+node dist/index.js auth   # first-time auth
+npm start
+```
+
+### Publishing a new release
+
+```bash
+git tag v1.0.1
+git push origin v1.0.1
+```
+
+GitHub Actions will automatically publish to npm and push the Docker image to GHCR.
