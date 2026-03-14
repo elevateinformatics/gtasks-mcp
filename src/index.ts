@@ -15,6 +15,7 @@ import { google, tasks_v1 } from "googleapis";
 import os from "os";
 import path from "path";
 import { TaskActions, TaskResources } from "./Tasks.js";
+import { logger } from "./logger.js";
 
 const tasks = google.tasks("v1");
 
@@ -261,23 +262,23 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 });
 
 const gtasksDir = process.env.GTASKS_DIR ?? path.join(os.homedir(), ".gtasks");
-const credentialsPath = path.join(gtasksDir, "credentials.json");
+const credentialsPath = path.join(gtasksDir, ".gtasks-server-credentials.json");
 const oauthKeysPath = path.join(gtasksDir, "gcp-oauth.keys.json");
 
 async function authenticateAndSaveCredentials() {
   if (!fs.existsSync(oauthKeysPath)) {
-    console.error(`OAuth keys not found at: ${oauthKeysPath}`);
-    console.error(`Place your gcp-oauth.keys.json file in ~/.gtasks/`);
+    logger.error(`OAuth keys not found at: ${oauthKeysPath}`);
+    logger.error(`Place your gcp-oauth.keys.json file in ~/.gtasks/`);
     process.exit(1);
   }
   fs.mkdirSync(gtasksDir, { recursive: true });
-  console.log("Launching auth flow…");
+  logger.info("Launching auth flow…");
   const auth = await authenticate({
     keyfilePath: oauthKeysPath,
     scopes: ["https://www.googleapis.com/auth/tasks"],
   });
   fs.writeFileSync(credentialsPath, JSON.stringify(auth.credentials));
-  console.log(`Credentials saved to ${credentialsPath}. You can now run the server.`);
+  logger.info(`Credentials saved to ${credentialsPath}. You can now run the server.`);
 }
 
 async function loadCredentialsAndRunServer() {
@@ -290,6 +291,12 @@ async function loadCredentialsAndRunServer() {
   auth.on("tokens", (tokens) => {
     const current = JSON.parse(fs.readFileSync(credentialsPath, "utf-8"));
     fs.writeFileSync(credentialsPath, JSON.stringify({ ...current, ...tokens }));
+    if (tokens.expiry_date) {
+      const expiresAt = new Date(tokens.expiry_date).toISOString();
+      logger.info(`Token refreshed. Expires at: ${expiresAt}`);
+    } else {
+      logger.info("Token refreshed. No expiry_date provided.");
+    }
   });
   google.options({ auth });
 
@@ -305,13 +312,14 @@ async function main() {
     await loadCredentialsAndRunServer();
   } catch (err: any) {
     if (err?.message?.includes("invalid_grant")) {
-      console.error("Token revocado o expirado. Relanzando autenticación…");
+      logger.error("Token revocado o expirado. Relanzando autenticación…");
       await authenticateAndSaveCredentials();
       await loadCredentialsAndRunServer();
     } else {
+      logger.error("Unhandled error in server", err?.message ?? err);
       throw err;
     }
   }
 }
 
-main().catch(console.error);
+main().catch((err) => logger.error("Fatal error", err?.message ?? err));

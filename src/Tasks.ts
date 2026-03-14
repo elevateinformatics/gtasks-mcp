@@ -1,3 +1,4 @@
+import { logger } from "./logger.js";
 import {
   CallToolRequest,
   CallToolResult,
@@ -130,7 +131,7 @@ export class TaskActions {
           const items = tasksResponse.data.items || [];
           allTasks = allTasks.concat(items);
         } catch (error) {
-          console.error(`Error fetching tasks for list ${taskList.id}:`, error);
+          logger.error(`Error fetching tasks for list ${taskList.id}`, error instanceof Error ? error.message : String(error));
         }
       }
     }
